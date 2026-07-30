@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>軸承零件查詢系統</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 PapaParse 用來解析 CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- 頂部標題區 -->
+    <header class="bg-red-700 text-white p-4 text-center font-bold text-lg shadow-md">
+        軸承零件查詢系統
+    </header>
+
+    <!-- 搜尋列區 -->
+    <div class="p-4 bg-white shadow-sm">
+        <div class="relative">
+            <input type="text" id="searchInput" placeholder="請輸入產品名稱、品牌、型號 (例如: 6009, 32015AV)" 
+                   class="w-full p-3 pl-10 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+            <svg class="w-5 h-5 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+        </div>
+    </div>
+
+    <!-- 九宮格分類區 -->
+    <div class="grid grid-cols-4 gap-2 p-4 bg-white mt-2 text-center text-xs">
+        <div class="flex flex-col items-center cursor-pointer" onclick="filterCategory('汽車軸承')">
+            <div class="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center text-pink-500 mb-1">🚗</div>
+            <span>汽車軸承</span>
+        </div>
+        <div class="flex flex-col items-center cursor-pointer" onclick="filterCategory('軸承')">
+            <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-500 mb-1">📦</div>
+            <span>軸承分類</span>
+        </div>
+        <div class="flex flex-col items-center cursor-pointer" onclick="filterCategory('油封')">
+            <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-500 mb-1">🛢️</div>
+            <span>潤滑油封</span>
+        </div>
+        <div class="flex flex-col items-center cursor-pointer" onclick="filterCategory('工具')">
+            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-500 mb-1">🔧</div>
+            <span>相關工具</span>
+        </div>
+    </div>
+
+    <!-- 搜尋結果 / 產品列表 -->
+    <div class="p-4 space-y-3" id="productList">
+        <div class="text-center text-gray-400 py-4">正在載入試算表資料...</div>
+    </div>
+
+    <script>
+        // 【步驟說明】
+        // 請將下方引號內的網址，換成你在 Google 試算表點擊「檔案 > 共用 > 發布到網路」後，
+        // 下拉選單選擇「逗號分隔值 (.csv)」所產生的那一串長網址。
+        const csvUrl = "https://docs.google.com/spreadsheets/d/1oOX-MmssVLTNID91hcw2q-L_h5aeAMZYxa3eDkj7aNU/gviz/tq?tqx=out:csv";
+
+        let allProducts = [];
+
+        // 讀取並解析 CSV
+        Papa.parse(csvUrl, {
+            download: true,
+            header: true,
+            complete: function(results) {
+                allProducts = results.data;
+                renderProducts(allProducts);
+            },
+            error: function(err) {
+                console.error(err);
+                document.getElementById('productList').innerHTML = '<div class="text-center text-red-500 py-4">資料載入失敗，請確認網址正確</div>';
+            }
+        });
+
+        // 渲染產品列表
+        function renderProducts(products) {
+            const container = document.getElementById('productList');
+            container.innerHTML = '';
+
+            // 過濾掉空白行
+            const validProducts = products.filter(item => {
+                let keys = Object.keys(item);
+                let firstVal = item[keys[0]] || "";
+                return firstVal.toString().trim() !== "";
+            });
+
+            if (validProducts.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-400 py-4">目前沒有找到產品資料</div>';
+                return;
+            }
+
+            validProducts.forEach(item => {
+                let keys = Object.keys(item);
+                // 自動對應試算表的第一欄作為標題，第二欄作為SKU，依此類推
+                let title = item.Title || item.產品名稱 || item.型號 || item[keys[0]] || "未知型號";
+                let sku = item.SKU || item.貨號 || item[keys[1]] || "無貨號";
+                let warehouse = item.Warehouse || item.倉庫 || "總倉";
+                let stock = item.Stock || item.庫存 || "0";
+                let price = item.Price || item.價格 || "0";
+
+                let card = `
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">現貨</span>
+                            <span class="text-xs text-gray-400">貨號: ${sku}</span>
+                        </div>
+                        <h3 class="font-bold text-gray-900 mb-1">${title}</h3>
+                        <div class="text-xs text-gray-500 space-y-1 mb-3">
+                            <p>倉庫：${warehouse} | 庫存：${stock} 套</p>
+                            <p>物流時效：三日達</p>
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t border-gray-100">
+                            <span class="text-red-600 font-bold">NT$ ${price}起</span>
+                            <button class="bg-red-600 text-white text-xs px-3 py-1.5 rounded hover:bg-red-700" onclick="alert('已加入詢價：${title}')">加入詢價</button>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        // 即時搜尋監聽
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            let keyword = e.target.value.toLowerCase();
+            let filtered = allProducts.filter(item => {
+                let textToSearch = JSON.stringify(item).toLowerCase();
+                return textToSearch.includes(keyword);
+            });
+            renderProducts(filtered);
+        });
+
+        // 點擊分類篩選
+        function filterCategory(categoryName) {
+            document.getElementById('searchInput').value = categoryName;
+            let filtered = allProducts.filter(item => {
+                let textToSearch = JSON.stringify(item).toLowerCase();
+                return textToSearch.includes(categoryName.toLowerCase());
+            });
+            renderProducts(filtered);
+        }
+    </script>
+</body>
+</html>
